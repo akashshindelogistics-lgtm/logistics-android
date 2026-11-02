@@ -5,7 +5,7 @@
 # again. Keep it out of git, and back it up (with its password) somewhere
 # other than this machine.
 #
-# Usage:  android/scripts/make-release-keystore.sh [path]
+# Usage:  scripts/make-release-keystore.sh [path]
 #         (default ~/.config/logistics-driver/release.jks)
 # Asks for a password (at least 6 characters); key alias "driver", valid 30 years.
 set -euo pipefail
@@ -21,7 +21,7 @@ if [ -e "$KEYSTORE" ]; then
 fi
 KEYSTORE=$(realpath -m "$KEYSTORE")
 case "$KEYSTORE" in
-    "$(cd "$(dirname "$0")/../.." && pwd)"/*)
+    "$(cd "$(dirname "$0")/.." && pwd)"/*)
         echo "Put the keystore outside the repo, not at $KEYSTORE"; exit 1 ;;
 esac
 
@@ -44,4 +44,4 @@ chmod 600 "$KEYSTORE"
 echo
 echo "Created $KEYSTORE (alias driver)."
 echo "Back it up now, with its password, somewhere other than this machine."
-echo "Then build a release with:  DRIVER_KEYSTORE=$KEYSTORE android/scripts/build-release.sh"
+echo "Then build a release with:  DRIVER_KEYSTORE=$KEYSTORE scripts/build-release.sh"

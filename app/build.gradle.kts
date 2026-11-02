@@ -19,12 +19,15 @@ android {
         // 36 = Android 16, what Google Play requires from 31 Aug 2026. We
         // sideload, but there's no reason to target lower.
         targetSdk = 36
-        // Must go up on every release: Android only installs an APK over the
-        // old one if versionCode is higher (see docs/android-driver-app.md).
-        versionCode = 1
-        versionName = "0.1.0"
+        // The version lives in version.txt, which release-please bumps. The
+        // versionCode is derived from it (major * 10000 + minor * 100 + patch),
+        // so it goes up with every release: Android only installs an APK over
+        // the old one if versionCode is higher (see docs/android-driver-app.md).
+        val version = rootProject.file("version.txt").readText().trim()
+        versionName = version
+        versionCode = versionCodeOf(version)
         // Overridable for local demos of the in-app update prompt
-        // (scripts/demo-update.sh); releases use the values above.
+        // (scripts/demo-update.sh); releases use version.txt.
         providers.gradleProperty("driver.versionCode").orNull?.let { versionCode = it.toInt() }
         providers.gradleProperty("driver.versionName").orNull?.let { versionName = it }
 
@@ -111,4 +114,11 @@ dependencies {
     androidTestImplementation(libs.okhttp.mockwebserver)
     androidTestImplementation(libs.kotlinx.coroutines.test)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
+
+/** "1.2.3" (or "1.2.3-anything") -> 10203. Each part must stay below 100. */
+fun versionCodeOf(version: String): Int {
+    val parts = version.substringBefore('-').split('.').map { it.toInt() }
+    require(parts.size == 3 && parts.all { it in 0..99 }) { "version.txt must be X.Y.Z with parts 0-99, got $version" }
+    return parts[0] * 10000 + parts[1] * 100 + parts[2]
 }

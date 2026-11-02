@@ -2,9 +2,9 @@
 # Demo of distributing the app through the server, run in a visible emulator
 # window and checked at each step:
 #   1. start a backend whose release directory (DRIVER_APP_DIR) is a fresh
-#      folder under android/build/demo, and seed a driver
-#   2. build the app twice: v1 (versionCode 1) and v2 (versionCode 2,
-#      "0.2.0-demo"); install v1 and pair it
+#      folder under build/demo, and seed a driver
+#   2. build the app twice: v1 (version.txt, e.g. 0.1.0 = versionCode 100)
+#      and v2 ("0.2.0-demo", versionCode 200); install v1 and pair it
 #   3. nothing is published yet, so the app offers no update
 #   4. publish v2 with scripts/publish-apk.sh; after Refresh the app shows
 #      "Update available", and Download update has the browser download it
@@ -13,17 +13,18 @@
 #      byte for byte
 #   6. install v2 over v1 (what the driver's tap on the download does): still
 #      paired, now on 0.2.0-demo, and no update offered
-#   7. the dashboard (frontend/tests/driver-app.demo.ts): the driver's page
+#   7. the dashboard (logistics-frontend tests/driver-app.demo.ts): the driver's page
 #      shows v0.2.0-demo, a QR code, and a link that downloads the same APK
-# The phone run is recorded to android/build/demo/update-demo.webm.
+# The phone run is recorded to build/demo/update-demo.webm.
 #
 # Needs its own backend, so the release directory is known: if something
 # already answers on API_PORT, pick another, e.g. API_PORT=8081.
 #
-# Usage (from the repo root):  android/scripts/demo-update.sh
+# Usage (from this repo's root):  scripts/demo-update.sh
 # Env overrides: see lib.sh.
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
+need_frontend
 
 RECORDING=""
 cleanup() {
@@ -46,10 +47,10 @@ start_backend
 seed_driver
 
 # Built before the emulator starts, to spare it the memory.
-build_apk -Pdriver.versionCode=2 "-Pdriver.versionName=$V2_NAME"
-cp "$ROOT/android/app/build/outputs/apk/debug/app-debug.apk" "$OUT/app-v2.apk"
+build_apk -Pdriver.versionCode=200 "-Pdriver.versionName=$V2_NAME"
+cp "$ROOT/app/build/outputs/apk/debug/app-debug.apk" "$OUT/app-v2.apk"
 build_apk
-cp "$ROOT/android/app/build/outputs/apk/debug/app-debug.apk" "$OUT/app-v1.apk"
+cp "$ROOT/app/build/outputs/apk/debug/app-debug.apk" "$OUT/app-v1.apk"
 
 boot_emulator
 install_fresh   # v1, just built
@@ -76,7 +77,7 @@ echo "App version 0.1.0, no update offered (nothing published)"
 sleep "$PAUSE"
 
 step "Publishing v2 on the server"
-"$ROOT/android/scripts/publish-apk.sh" "$OUT/app-v2.apk" "$RELEASES"
+"$ROOT/scripts/publish-apk.sh" "$OUT/app-v2.apk" "$RELEASES"
 LATEST=$(curl -sf "$API/api/driver-app/latest")
 [ "$(json "['data']['version_name']" <<<"$LATEST")" = "$V2_NAME" ] || { echo "API: $LATEST"; exit 1; }
 echo "API:      GET /api/driver-app/latest is $V2_NAME (versionCode $(json "['data']['version_code']" <<<"$LATEST"))"
@@ -142,9 +143,9 @@ echo "Screenshots: $OUT/update-available.png, update-browser.png, update-downloa
 
 step "Dashboard: the driver's page offers the same APK"
 WEB_PORT=${WEB_PORT:-$([ "$API_PORT" = 8080 ] && echo 5173 || echo 5174)}
-(cd "$ROOT/frontend" && DRIVER_APP_DEMO_ORG_NAME="$ORG_NAME" DRIVER_APP_DEMO_ORG_PASSWORD="$ORG_PASSWORD" \
+(cd "$FRONTEND_DIR" && DRIVER_APP_DEMO_ORG_NAME="$ORG_NAME" DRIVER_APP_DEMO_ORG_PASSWORD="$ORG_PASSWORD" \
     DRIVER_APP_DEMO_DRIVER_ID="$DRIVER_ID" DRIVER_APP_DEMO_VERSION="$V2_NAME" DRIVER_APP_DEMO_SHA256="$WANT" \
     E2E_API_PORT="$API_PORT" E2E_WEB_PORT="$WEB_PORT" \
     DISPLAY=${DISPLAY:-:0} XDG_SESSION_TYPE=x11 npm run --silent test:e2e:demo:driver-app)
-echo "Dashboard video: $(ls -t "$ROOT"/frontend/test-results/driver-app*/video.webm 2>/dev/null | head -n 1)"
+echo "Dashboard video: $(ls -t "$FRONTEND_DIR"/test-results/driver-app*/video.webm 2>/dev/null | head -n 1)"
 echo "The emulator is left running with v2 installed."

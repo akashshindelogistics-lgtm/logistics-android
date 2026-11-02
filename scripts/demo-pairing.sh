@@ -5,9 +5,9 @@
 #   3. pair the phone by typing the token (driven over adb, slowed down to watch)
 #   4. report one location fix with the device token and tap Refresh, so the
 #      status screen picks up the vehicle's new position from GET /api/driver/me
-# The run is recorded to android/build/demo/pairing-demo.mp4.
+# The run is recorded to build/demo/pairing-demo.mp4.
 #
-# Usage (from the repo root):  android/scripts/demo-pairing.sh
+# Usage (from this repo's root):  scripts/demo-pairing.sh
 # Env overrides: see lib.sh.
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"

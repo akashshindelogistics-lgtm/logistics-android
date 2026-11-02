@@ -1,11 +1,12 @@
 # Shared by the emulator demos in this folder; source it, don't run it.
 #
-# Env overrides: AVD (default: first from `emulator -list-avds`), API_PORT
+# Env overrides: BACKEND_DIR and FRONTEND_DIR (default ../logistics-backend and
+# ../logistics-frontend), AVD (default: first from `emulator -list-avds`), API_PORT
 # (default 8080; the backend is started with PORT=$API_PORT if nothing answers
 # there), PAUSE (seconds to linger on each step, default 2), ANDROID_HOME
 # (default ~/Android/Sdk), JAVA_HOME (default Studio's bundled JDK).
 
-ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 SDK=${ANDROID_HOME:-$HOME/Android/Sdk}
 export ANDROID_HOME=$SDK
 export JAVA_HOME=${JAVA_HOME:-$HOME/Downloads/android-studio/jbr}
@@ -14,14 +15,23 @@ EMULATOR="$SDK/emulator/emulator"
 # Default: the first emulator Android Studio created (names come from the
 # .ini file, e.g. Medium_Phone_API_37.0, not the .avd folder).
 AVD=${AVD:-$("$EMULATOR" -list-avds 2>/dev/null | head -n 1)}
+# The API and the dashboard live in their own repos; by default sibling
+# checkouts next to this one (logistics-backend, logistics-frontend).
+BACKEND_DIR=${BACKEND_DIR:-$(cd "$ROOT/.." && pwd)/logistics-backend}
+FRONTEND_DIR=${FRONTEND_DIR:-$(cd "$ROOT/.." && pwd)/logistics-frontend}
 API_PORT=${API_PORT:-8080}
 API=http://127.0.0.1:$API_PORT
 # The same backend as the emulator sees it.
 APP_SERVER=http://10.0.2.2:$API_PORT
-OUT="$ROOT/android/build/demo"
+OUT="$ROOT/build/demo"
 PKG=com.logistics.driver
 PAUSE=${PAUSE:-2}
 mkdir -p "$OUT"
+
+# The dashboard demos run from a logistics-frontend checkout.
+need_frontend() {
+    [ -f "$FRONTEND_DIR/package.json" ] || { echo "No logistics-frontend checkout at $FRONTEND_DIR; clone it there (npm ci) or set FRONTEND_DIR"; exit 1; }
+}
 
 step() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 json() { python3 -c "import json,sys; print(json.load(sys.stdin)$1)"; }
@@ -42,9 +52,10 @@ start_backend() {
         echo "Already running${pid:+ (from $(readlink "/proc/$pid/cwd" 2>/dev/null || echo "pid $pid"))}; using it"
         return
     fi
-    echo "Not running; starting it with cargo run (first build can take a few minutes)"
+    [ -f "$BACKEND_DIR/Cargo.toml" ] || { echo "No logistics-backend checkout at $BACKEND_DIR; clone it there or set BACKEND_DIR"; exit 1; }
+    echo "Not running; starting it with cargo run in $BACKEND_DIR (first build can take a few minutes)"
     # In its own process group, so cleanup_backend can stop cargo and the server.
-    (cd "$ROOT" && PORT=$API_PORT exec setsid cargo run --bin logistics-system >"$OUT/backend.log" 2>&1) &
+    (cd "$BACKEND_DIR" && PORT=$API_PORT exec setsid cargo run --bin logistics-system >"$OUT/backend.log" 2>&1) &
     BACKEND_PID=$!
     for _ in $(seq 1 300); do curl -sf "$API/api/health" >/dev/null && break; sleep 1; done
     curl -sf "$API/api/health" >/dev/null || { echo "Backend didn't start; see $OUT/backend.log"; exit 1; }
@@ -80,7 +91,7 @@ build_apk() {
     step "Building the debug APK${*:+ ($*)}"
     # No Gradle or Kotlin daemon left running afterwards: on a 16 GB machine
     # the emulator needs that memory, and starving it makes its watchdog kill it.
-    "$ROOT/android/gradlew" -p "$ROOT/android" assembleDebug --console=plain -q \
+    "$ROOT/gradlew" -p "$ROOT" assembleDebug --console=plain -q \
         --no-daemon -Pkotlin.compiler.execution.strategy=in-process "$@"
 }
 
@@ -116,7 +127,7 @@ boot_emulator() {
 # an earlier run.
 install_fresh() {
     "$ADB" uninstall "$PKG" >/dev/null 2>&1 || true
-    "$ADB" install "$ROOT/android/app/build/outputs/apk/debug/app-debug.apk" >/dev/null
+    "$ADB" install "$ROOT/app/build/outputs/apk/debug/app-debug.apk" >/dev/null
 }
 
 # ── Driving the UI over adb ──────────────────────────────────────────────────

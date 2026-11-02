@@ -1,0 +1,27 @@
+name: Release
+
+# release-please keeps a release PR off master that bumps version.txt and
+# CHANGELOG.md from conventional commits; merging it tags vX.Y.Z and creates
+# the GitHub Release. The versionCode follows from version.txt (see
+# app/build.gradle.kts). Tags are this repo's own, independent of
+# logistics-backend and logistics-frontend.
+#
+# No APK is attached: the signed APK is built locally from the tag with
+# scripts/build-release.sh, because the signing key never goes to CI.
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

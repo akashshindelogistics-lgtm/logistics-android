@@ -5,12 +5,12 @@
 # phones with a lower versionCode (see docs/android-driver-app.md,
 # "Distribution").
 #
-# Usage:  android/scripts/publish-apk.sh <apk> <release dir>
+# Usage:  scripts/publish-apk.sh <apk> <release dir>
 #
 # The release dir is the backend's DRIVER_APP_DIR (default
 # ./uploads/driver-app next to where the backend runs). For a deployed server,
 # publish into an empty local folder and copy it onto the uploads volume:
-#   android/scripts/publish-apk.sh android/build/release/logistics-driver-0.2.0.apk /tmp/driver-app
+#   scripts/publish-apk.sh build/release/logistics-driver-0.2.0.apk /tmp/driver-app
 #   docker compose cp /tmp/driver-app/. api:/app/uploads/driver-app/
 set -euo pipefail
 
@@ -31,7 +31,7 @@ if [ -f "$DIR/latest.json" ]; then
     CURRENT=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['version_code'])" "$DIR/latest.json")
     if [ "$VERSION_CODE" -le "$CURRENT" ]; then
         echo "versionCode $VERSION_CODE is not above the published $CURRENT; phones wouldn't install it as an update."
-        echo "Raise versionCode in android/app/build.gradle.kts."
+        echo "Release a newer version (version.txt) and build that."
         exit 1
     fi
 fi

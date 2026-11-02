@@ -8,23 +8,24 @@
 #   4. cut the emulator's network: new fixes queue on the phone, and the
 #      backend keeps the last position it had
 #   5. bring the network back: the queue uploads and the backend catches up
-#   6. open the dashboard in a browser (frontend/tests/driver-tracking.demo.ts)
+#   6. open the dashboard in a browser (logistics-frontend tests/driver-tracking.demo.ts)
 #      and check the final position on the Vehicles page and the vehicle page
 # At each step the position is checked through the API (GET /api/vehicles)
 # and in the database (the Vehicle row in MySQL, with the backend's MYSQL_*
 # settings and defaults). The phone run is recorded to
-# android/build/demo/tracking-demo.webm, the dashboard to
-# frontend/test-results/. It takes about four minutes, because the app asks
+# build/demo/tracking-demo.webm, the dashboard to
+# logistics-frontend test-results/. It takes about four minutes, because the app asks
 # for a fix only every 30 s.
 #
 # Location and notification permissions are granted over adb, and the app is
 # exempted from battery optimisation, so no system dialog interrupts the run
 # (both prompts are covered in "Phase 3 as built" in docs/android-driver-app.md).
 #
-# Usage (from the repo root):  android/scripts/demo-tracking.sh
+# Usage (from this repo's root):  scripts/demo-tracking.sh
 # Env overrides: see lib.sh.
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
+need_frontend
 
 RECORDING=""
 cleanup() {
@@ -175,9 +176,9 @@ read -r LAT LON <<<"${ROUTE[3]}"
 # Vite on 5173 proxies to 8080; with another API port, use a Vite of our own
 # so the dashboard reads the same backend as the phone.
 WEB_PORT=${WEB_PORT:-$([ "$API_PORT" = 8080 ] && echo 5173 || echo 5174)}
-(cd "$ROOT/frontend" && DRIVER_DEMO_ORG_NAME="$ORG_NAME" DRIVER_DEMO_ORG_PASSWORD="$ORG_PASSWORD" \
+(cd "$FRONTEND_DIR" && DRIVER_DEMO_ORG_NAME="$ORG_NAME" DRIVER_DEMO_ORG_PASSWORD="$ORG_PASSWORD" \
     DRIVER_DEMO_REG="$REG" DRIVER_DEMO_LAT="$LAT" DRIVER_DEMO_LON="$LON" \
     E2E_API_PORT="$API_PORT" E2E_WEB_PORT="$WEB_PORT" \
     DISPLAY=${DISPLAY:-:0} XDG_SESSION_TYPE=x11 npm run --silent test:e2e:demo:driver-tracking)
-echo "Dashboard video: $(ls -t "$ROOT"/frontend/test-results/driver-tracking*/video.webm 2>/dev/null | head -n 1)"
+echo "Dashboard video: $(ls -t "$FRONTEND_DIR"/test-results/driver-tracking*/video.webm 2>/dev/null | head -n 1)"
 echo "The emulator is left running, still sharing; switch it off in the app or uninstall."

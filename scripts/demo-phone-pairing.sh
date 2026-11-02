@@ -2,7 +2,7 @@
 # Demo of pairing a driver's phone from the dashboard, with the emulator and
 # the dashboard (Chromium) side by side, checked at each step:
 #   1. seed an org, vehicle and driver with no phone paired
-#   2. dashboard (frontend/tests/phone-pairing.demo.ts): the driver's page
+#   2. dashboard (logistics-frontend tests/phone-pairing.demo.ts): the driver's page
 #      issues a device token as a QR code, and the demo decodes the QR code
 #      off the screen
 #   3. the decoded link opens on the emulator, as when the camera reads the
@@ -11,16 +11,17 @@
 #      "last reported just now"
 #   5. the dashboard unpairs: the token is gone from the database, and the
 #      app's next Refresh is refused
-# The phone run is recorded to android/build/demo/phone-pairing-demo.webm.
+# The phone run is recorded to build/demo/phone-pairing-demo.webm.
 #
 # The QR code holds the dashboard's own address (Vite, which proxies /api),
 # so the emulator reaches it through `adb reverse`.
 #
-# Usage (from the repo root):  android/scripts/demo-phone-pairing.sh
+# Usage (from this repo's root):  scripts/demo-phone-pairing.sh
 # Env overrides: see lib.sh; WEB_PORT (default 5173, or 5174 when API_PORT
 # isn't 8080).
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
+need_frontend
 
 WEB_PORT=${WEB_PORT:-$([ "$API_PORT" = 8080 ] && echo 5173 || echo 5174)}
 HANDOFF="$OUT/pairing-handoff"
@@ -64,7 +65,7 @@ wait_text "Pair this phone"
 
 step "Dashboard: Pair a phone (opens Chromium)"
 rm -rf "$HANDOFF" && mkdir -p "$HANDOFF"
-(cd "$ROOT/frontend" && PAIRING_DEMO_HANDOFF="$HANDOFF" PAIRING_DEMO_ORG_NAME="$ORG_NAME" \
+(cd "$FRONTEND_DIR" && PAIRING_DEMO_HANDOFF="$HANDOFF" PAIRING_DEMO_ORG_NAME="$ORG_NAME" \
     PAIRING_DEMO_ORG_PASSWORD="$ORG_PASSWORD" PAIRING_DEMO_DRIVER_ID="$DRIVER_ID" \
     E2E_API_PORT="$API_PORT" E2E_WEB_PORT="$WEB_PORT" \
     DISPLAY=${DISPLAY:-:0} XDG_SESSION_TYPE=x11 npm run --silent test:e2e:demo:phone-pairing) \
@@ -112,6 +113,9 @@ step "The phone's next request is refused"
 tap_tag refresh-button
 wait_text "wasn't recognised"
 echo "App: \"This device token wasn't recognised\""
+# The dashboard demo keeps its Vite dev server (the phone's server address) up
+# until now; let it finish.
+touch "$HANDOFF/phone-refused"
 sleep "$PAUSE"; sleep "$PAUSE"
 "$ADB" exec-out screencap -p >"$OUT/pairing-refused.png"
 
@@ -123,5 +127,5 @@ step "Stopping the recording"
 "$ADB" emu screenrecord stop >/dev/null
 RECORDING=""
 echo "Video:           $OUT/phone-pairing-demo.webm"
-echo "Dashboard video: $(ls -t "$ROOT"/frontend/test-results/phone-pairing*/video.webm 2>/dev/null | head -n 1)"
+echo "Dashboard video: $(ls -t "$FRONTEND_DIR"/test-results/phone-pairing*/video.webm 2>/dev/null | head -n 1)"
 echo "Screenshots:     $OUT/pairing-from-code.png, pairing-paired.png, pairing-refused.png"
